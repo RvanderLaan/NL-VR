@@ -1,0 +1,19 @@
+{
+  "name": "nl-vr",
+  "version": "1.0.0",
+  "description": "NL in VR",
+  "main": "./src/main.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": ""
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/three": "^0.103.2",
+    "typescript": "^3.9.5"
+  },
+  "dependencies": {
+    "three": "^0.118.3"
+  }
+}
