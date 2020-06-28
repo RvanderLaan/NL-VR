@@ -1,7 +1,12 @@
 {
-	"compilerOptions": {
-		"target": "es6",
-		"moduleResolution": "node",
-	},
-	"include": [ "./src/**/*.ts" ],
+  "compilerOptions": {
+    "target": "es6",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "baseUrl": ".",
+    "paths": {
+      "three-full": ["node_modules/@types/three"]
+    }
+  },
+  "include": ["./src/**/*.ts", "src/custom.d.ts"]
 }
