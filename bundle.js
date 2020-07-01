@@ -82099,6 +82099,7 @@ class Player extends three__WEBPACK_IMPORTED_MODULE_0__["Object3D"] {
         this.xr = xr;
         // Make the camera a child of the Player, so the camera moves with the player
         this.add(camera);
+        this.previousPosition = this.position.clone();
         camera.position.y = 1.8; // player eye height
         const controllerModelFactory = new three_examples_jsm_webxr_XRControllerModelFactory_js__WEBPACK_IMPORTED_MODULE_1__["XRControllerModelFactory"]();
         this.controllers = [undefined, undefined];
@@ -82164,6 +82165,7 @@ class Player extends three__WEBPACK_IMPORTED_MODULE_0__["Object3D"] {
     }
     update(dt) {
         var _a, _b;
+        this.previousPosition.copy(this.position);
         // Update button states
         for (const controller of this.controllers) {
             if (!controller.initialized || !controller.gamepad) {
@@ -82200,7 +82202,9 @@ class Player extends three__WEBPACK_IMPORTED_MODULE_0__["Object3D"] {
             //   new THREE.Vector3(1, 0, 0),
             //   -Math.PI / 4,
             // );
-            this.position.add(controllerDir.applyQuaternion(grip.quaternion).applyQuaternion(this.quaternion));
+            if (grip) {
+                this.position.add(controllerDir.applyQuaternion(grip.quaternion).applyQuaternion(this.quaternion));
+            }
         }
         if ((_b = this.controllers) === null || _b === void 0 ? void 0 : _b[1]) {
             const { gamepad: { axes }, } = this.controllers[1];
@@ -82217,11 +82221,12 @@ class Player extends three__WEBPACK_IMPORTED_MODULE_0__["Object3D"] {
 /*!*********************!*\
   !*** ./src/Tile.ts ***!
   \*********************/
-/*! exports provided: default */
+/*! exports provided: tileHash, default */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "tileHash", function() { return tileHash; });
 /* harmony import */ var three__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
 /* harmony import */ var geotiff__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! geotiff */ "./node_modules/geotiff/src/geotiff.js");
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
@@ -82238,6 +82243,9 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 // Height data
 const format = 'GEOTIFF_FLOAT32';
 const crs = 'EPSG:28992';
+function tileHash(bounds) {
+    return `${bounds.minX}x${bounds.minY}`;
+}
 const heightBaseUrl = `https://geodata.nationaalgeoregister.nl/ahn3/wcs?SERVICE=WCS&VERSION=1.0.0&REQUEST=GetCoverage&FORMAT=${format}`;
 const rgbBaseUrl = `https://geodata.nationaalgeoregister.nl/luchtfoto/infrarood/wms?&REQUEST=GetMap&SERVICE=WMS&VERSION=1.3.0&LAYERS=2019_ortho25&FORMAT=image/jpeg&STYLES=`;
 const getMapUrl = (baseUrl, bounds, scale) => `${baseUrl}&BBOX=${bounds.minX},${bounds.minY},${bounds.maxX},${bounds.maxY}&CRS=${crs}&RESPONSE_CRS=${crs}&WIDTH=${Math.round(scale * (bounds.maxX - bounds.minX))}&HEIGHT=${Math.round(scale * (bounds.maxY - bounds.minY))}`;
@@ -82262,9 +82270,9 @@ class Tile extends three__WEBPACK_IMPORTED_MODULE_0__["Object3D"] {
         this.position.add(new three__WEBPACK_IMPORTED_MODULE_0__["Vector3"](minX + width / 2, 0, minY + width / 2));
         const rgbUrl = getRgbUrl(bounds);
         console.log(rgbUrl);
-        const texture = new three__WEBPACK_IMPORTED_MODULE_0__["TextureLoader"]().load(rgbUrl);
+        this.texture = new three__WEBPACK_IMPORTED_MODULE_0__["TextureLoader"]().load(rgbUrl);
         const geometry = new three__WEBPACK_IMPORTED_MODULE_0__["PlaneBufferGeometry"](width, height, wVerts - 1, hVerts - 1);
-        const material = new three__WEBPACK_IMPORTED_MODULE_0__["MeshStandardMaterial"]({ map: texture });
+        const material = new three__WEBPACK_IMPORTED_MODULE_0__["MeshStandardMaterial"]({ map: this.texture });
         this.plane = new three__WEBPACK_IMPORTED_MODULE_0__["Mesh"](geometry, material);
         this.plane.rotateX(-Math.PI / 2);
         // this.plane.rotateZ(-Math.PI / 2);
@@ -82313,6 +82321,15 @@ class Tile extends three__WEBPACK_IMPORTED_MODULE_0__["Object3D"] {
             this.heightData = new Float32Array();
         });
     }
+    hash() {
+        return tileHash(this.bounds);
+    }
+    dispose() {
+        this.plane.geometry.dispose();
+        this.plane.material.dispose();
+        this.texture.dispose();
+        delete this.heightData;
+    }
 }
 /* harmony default export */ __webpack_exports__["default"] = (Tile);
 
@@ -82331,6 +82348,17 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var three__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
 /* harmony import */ var _Player__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./Player */ "./src/Player.ts");
 /* harmony import */ var _Tile__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./Tile */ "./src/Tile.ts");
+/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./utils */ "./src/utils.ts");
+var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+
 
 
 
@@ -82341,44 +82369,52 @@ class World {
         this.camera = new three__WEBPACK_IMPORTED_MODULE_0__["PerspectiveCamera"](75, window.innerWidth / window.innerHeight, 0.1, 10000);
         this.player = new _Player__WEBPACK_IMPORTED_MODULE_1__["default"](this.camera, renderer.xr);
         this.scene.add(this.player);
+        this.tiles = new Map();
         // TODO: Temporary init position (Hoofddorp coordinates)
         // Should ask player for their location, otherwise default location of Amsterdam or something
         this.player.position.add(new three__WEBPACK_IMPORTED_MODULE_0__["Vector3"](107627, 0, 479962));
-        this.initialize();
+        this.tileSize = 250;
+        this.initialize().catch(console.error);
     }
     initialize() {
-        // Background light
-        this.scene.add(new three__WEBPACK_IMPORTED_MODULE_0__["HemisphereLight"](0x606060, 0x404040));
-        // Directional light
-        const light = new three__WEBPACK_IMPORTED_MODULE_0__["DirectionalLight"](0xffffff);
-        light.position.set(1, 1, 1).normalize();
-        this.scene.add(light);
-        // Some dummy geometry
-        const geometry = new three__WEBPACK_IMPORTED_MODULE_0__["BoxGeometry"]();
-        const material = new three__WEBPACK_IMPORTED_MODULE_0__["MeshStandardMaterial"]({ color: 0x00ff00 });
-        this.testCube = new three__WEBPACK_IMPORTED_MODULE_0__["Mesh"](geometry, material);
-        this.testCube.position.add(this.player.position).add(new three__WEBPACK_IMPORTED_MODULE_0__["Vector3"](0, 1, -2));
-        this.scene.add(this.testCube);
-        // TODO:
-        // 4 high resolution (0.5m) tiles surrounded by 8 low resolution (5m) tiles
-        // that follow the player
-        // e.g. the high-res tiles could be 500px = 250m, with 2 verteces per meter
-        // then each low res tile is would be 500m = 100px
-        const tileSize = 250;
-        const pos = this.player.position;
-        this.mainTile = this.createTile(pos.x, pos.z, tileSize, 0.5);
-        this.scene.add(this.mainTile);
-        // Also load surrounding tiles
-        setTimeout(() => {
+        return __awaiter(this, void 0, void 0, function* () {
+            // Background light
+            this.scene.add(new three__WEBPACK_IMPORTED_MODULE_0__["HemisphereLight"](0x606060, 0x404040));
+            // Directional light
+            const light = new three__WEBPACK_IMPORTED_MODULE_0__["DirectionalLight"](0xffffff);
+            light.position.set(1, 1, 1).normalize();
+            this.scene.add(light);
+            // Some dummy geometry
+            const geometry = new three__WEBPACK_IMPORTED_MODULE_0__["BoxGeometry"]();
+            const material = new three__WEBPACK_IMPORTED_MODULE_0__["MeshStandardMaterial"]({ color: 0x00ff00 });
+            this.testCube = new three__WEBPACK_IMPORTED_MODULE_0__["Mesh"](geometry, material);
+            this.testCube.position.add(this.player.position).add(new three__WEBPACK_IMPORTED_MODULE_0__["Vector3"](0, 1, -2));
+            this.scene.add(this.testCube);
+            // TODO:
+            // 4 high resolution (0.5m) tiles surrounded by 8 low resolution (5m) tiles
+            // that follow the player
+            // e.g. the high-res tiles could be 500px = 250m, with 2 verteces per meter
+            // then each low res tile is would be 500m = 100px
+            const { tileSize } = this;
+            const pos = this.player.position;
+            const mainTile = this.createTile(pos.x, pos.z, tileSize, 0.5);
+            this.scene.add(mainTile);
+            this.tiles.set(mainTile.hash(), mainTile);
+            // Also load surrounding tiles after a few seconds
+            yield Object(_utils__WEBPACK_IMPORTED_MODULE_3__["wait"])(2000);
             for (let i = 0; i < 3; i++) {
                 for (let j = 0; j < 3; j++) {
                     if (!(i == 1 && j == 1)) {
                         console.log(i, j);
-                        this.scene.add(this.createTile(pos.x + (i - 1) * tileSize, pos.z + (j - 1) * tileSize, tileSize, 0.5));
+                        const tile = this.createTile(pos.x + (i - 1) * tileSize, pos.z + (j - 1) * tileSize, tileSize, 0.5);
+                        this.tiles.set(tile.hash(), tile);
+                        this.scene.add(tile);
+                        // Wait a bit after adding a tile to avoid a big lag spike
+                        yield Object(_utils__WEBPACK_IMPORTED_MODULE_3__["wait"])(500);
                     }
                 }
             }
-        }, 5000);
+        });
     }
     createTile(x, y, tileSize, res) {
         const fractX = x % tileSize;
@@ -82395,6 +82431,42 @@ class World {
         this.testCube.rotation.x += 0.01;
         this.testCube.rotation.y += 0.01;
         this.player.update(dt);
+        // If crossing a boundary, load a new tile and hide/delete far away tiles
+        const { tileSize } = this;
+        const { position, previousPosition } = this.player;
+        const tileT0 = previousPosition.clone().divideScalar(tileSize).floor();
+        const tileT1 = position.clone().divideScalar(tileSize).floor();
+        if (tileT0.x !== tileT1.x || tileT0.z !== tileT1.z) {
+            const hash = Object(_Tile__WEBPACK_IMPORTED_MODULE_2__["tileHash"])({
+                minX: tileT1.x * tileSize,
+                minY: tileT1.z * tileSize,
+                maxX: 0,
+                maxY: 0,
+            });
+            // Check if tile already exists
+            if (!this.tiles.has(hash)) {
+                const tile = this.createTile(position.x, position.z, tileSize, 0.5);
+                this.tiles.set(tile.hash(), tile);
+                this.scene.add(tile);
+            }
+            else if (!this.tiles.get(hash).visible) {
+                this.tiles.get(hash).visible = true;
+            }
+            // Clean up far away tiles
+            this.tiles.forEach((tile) => {
+                // TODO: Compute distance to center instead of corner
+                const dist = tile.position.distanceTo(position);
+                if (dist > tileSize * 4) {
+                    this.scene.remove(tile);
+                    this.tiles.delete(tile.hash());
+                    // TODO: Free geometry/material/textures
+                    tile.dispose();
+                }
+                else if (dist > tileSize * 2) {
+                    tile.visible = false;
+                }
+            });
+        }
     }
 }
 /* harmony default export */ __webpack_exports__["default"] = (World);
@@ -82448,6 +82520,21 @@ renderer.setAnimationLoop(function () {
     controls.update();
     renderer.render(world.scene, world.camera);
 });
+
+
+/***/ }),
+
+/***/ "./src/utils.ts":
+/*!**********************!*\
+  !*** ./src/utils.ts ***!
+  \**********************/
+/*! exports provided: wait */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "wait", function() { return wait; });
+const wait = (time) => new Promise((res) => setTimeout(res, time));
 
 
 /***/ }),
